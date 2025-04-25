@@ -30,13 +30,13 @@ public class LoginInterceptor implements HandlerInterceptor {
         }
 
         //5.存在，保存用户信息到ThreadLocal
-        UserHolder.saveUser((User) user);
+        UserHolder.saveUser((UserDTO) user);
 
         //6.放行
         return true;
-
-
     }
+
+
 
     // 请求处理之后进行调用，但是在视图被渲染之前（Controller方法调用之后）
     @Override

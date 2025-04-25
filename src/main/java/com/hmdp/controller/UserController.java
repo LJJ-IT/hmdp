@@ -10,7 +10,6 @@ import com.hmdp.service.IUserInfoService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -66,7 +65,7 @@ public class UserController {
 
     @GetMapping("/me")
     public Result me(){
-        User user = UserHolder.getUser1();
+        UserDTO user = UserHolder.getUser();
         return Result.ok(user);
     }
 
