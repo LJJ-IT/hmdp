@@ -1,5 +1,6 @@
 package com.hmdp.service.impl;
 
+import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.hmdp.dto.Result;
@@ -32,35 +33,118 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+
     @Override
     public Result queryById(Long id) {
+        //缓存穿透
+      /*  Shop shop = queryWithPassThrough(id);*/
+        //互斥锁解决缓存穿透
+        Shop shop = queryWithMutex(id);
+        if(shop == null){
+            return Result.fail("店铺不存在!");
+        }
+        return Result.ok(shop);
+
+    }
+
+    public Shop queryWithMutex(Long id){
+
+        String key = RedisConstants.CACHE_SHOP_KEY + id;
+        //1.从redis中查询缓存
+        String shopJson = stringRedisTemplate.opsForValue().get(RedisConstants.CACHE_SHOP_KEY + id);
+        //2.判断是否存在
+        if(StrUtil.isNotBlank(shopJson)){
+            //3.存在，直接返回
+            return JSONUtil.toBean(shopJson, Shop.class);
+
+        }
+        //判断命中的数据是否为空（空字符串）
+        if(shopJson!=null){
+            //返回错误信息
+            return null;
+        }
+        //4.实现缓存重建
+        String lockKey = RedisConstants.LOCK_SHOP_KEY + id;//拼接出来锁的key
+        Shop shop = null;
+
+        try {
+
+            //4.1获取互斥锁
+            boolean isLock = trylock(lockKey);
+            //4.2判断是否获取锁成功
+            if (!isLock){
+            //4.3 失败，休眠并重试
+                Thread.sleep(50);
+                return queryWithMutex(id);
+            }
+            //4.4成功，获取锁成功，根据id查询数据库
+            shop = getById(id);
+            //模拟重建的延迟
+            Thread.sleep(200);
+            //5.不存在返回错误
+            if(shop == null){
+                //将空值存储到redis中
+                stringRedisTemplate.opsForValue().set(key,"",RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
+                //返回错误信息
+                return null;
+            }
+            //6.存在，写入缓存
+            stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }finally {
+            //7.释放互斥锁
+            unlock(lockKey);
+        }
+
+
+        //8.返回数据
+        return shop;
+
+    }
+
+    // 逻辑过期解决缓存击穿
+    public Shop queryWithPassThrough(Long id){
+
+        // 设置缓存时添加一个随机时间偏移量（例如：0到5分钟之间的随机分钟数）,防止缓存雪崩
+        int randomTtl = (int) (Math.random() * 6); // 生成0到5之间的随机整数
+
         //1.从redis中查询缓存
         String key = RedisConstants.CACHE_SHOP_KEY + id;
         String shopJson = stringRedisTemplate.opsForValue().get(RedisConstants.CACHE_SHOP_KEY + id);
         //2.判断是否存在
         if(StrUtil.isNotBlank(shopJson)){
             //3.存在，直接返回
-            Shop shop = JSONUtil.toBean(shopJson, Shop.class);
-            return Result.ok(shop);
+            return JSONUtil.toBean(shopJson, Shop.class);
+
         }
         //判断命中的数据是否为空（空字符串）
         if(shopJson!=null){
-            return Result.fail("店铺信息不存在");
+            return null;
         }
         //4.不存在，查询数据库
         Shop shop = getById(id);
         //5.不存在返回错误
         if(shop == null){
             //将空值存储到redis中
-            stringRedisTemplate.opsForValue().set(key,"",RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
+            stringRedisTemplate.opsForValue().set(key,"",RedisConstants.CACHE_NULL_TTL+randomTtl, TimeUnit.MINUTES);
             //返回错误信息
-            return Result.fail("店铺不存在");
+            return null;
         }
         //6.存在，写入缓存
-        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(shop),CACHE_SHOP_TTL+randomTtl, TimeUnit.MINUTES);
         //7.返回数据
-        return Result.ok(shop);
+        return shop;
 
+    }
+    //创建锁
+    private boolean trylock(String key){
+        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
+        return BooleanUtil.isTrue(flag);//返回true表示获取锁成功，false表示获取锁失败(拆箱：对象转化成基本数据类型)
+    }
+    //释放锁
+    private void unlock(String key){
+        stringRedisTemplate.delete(key);
     }
 
     @Override
