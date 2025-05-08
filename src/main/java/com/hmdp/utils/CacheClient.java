@@ -21,6 +21,7 @@ import static com.hmdp.utils.RedisConstants.CACHE_SHOP_TTL;
 
 @Component
 @Slf4j
+//封装缓存操作的工具类
 public class CacheClient {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
