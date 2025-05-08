@@ -50,12 +50,12 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                   .queryWithPassThrough(RedisConstants.CACHE_SHOP_KEY, id,Shop.class,this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);*/
 
         //互斥锁解决缓存击穿
-/*        Shop shop = cacheClient
-                .queryWithMutex(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);*/
+        Shop shop = cacheClient
+                .queryWithMutex(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
 
         //逻辑过期解决缓存击穿,用这个得先手动设置expireTime过期时间(因为他将shop作为data存到了RedisData的成员了,另一个成员就是expireTime)，即先手动缓存数据，一般用在热点数据的缓存中
-        Shop shop = cacheClient
-                .queryWithLogicExpire(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.SECONDS);
+/*        Shop shop = cacheClient
+                .queryWithLogicExpire(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.SECONDS);*/
         if(shop == null){
             return Result.fail("店铺不存在!");
         }
