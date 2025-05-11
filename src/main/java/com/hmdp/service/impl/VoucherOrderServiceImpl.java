@@ -92,7 +92,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 return Result.fail("用户已经购买过一次了");
             }
 
-            //5.2判断是否存在
 
             //6.扣减库存
             boolean success = seckillVoucherService.update()
