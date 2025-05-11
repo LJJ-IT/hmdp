@@ -47,7 +47,7 @@ public class SimpleRedisLock implements  ILock{
                 ID_PREFIX + Thread.currentThread().getId());
 
     }
-/*    @Override
+/*    @Override 这个方法被注释掉是因为它没有具备原子性，会导致在释放锁时如果发生阻塞，会导致其他线程的锁被释放，从而导致业务逻辑错误。
     public void unlock() {
         //获取线程标识
         String threadId = ID_PREFIX + Thread.currentThread().getId();
