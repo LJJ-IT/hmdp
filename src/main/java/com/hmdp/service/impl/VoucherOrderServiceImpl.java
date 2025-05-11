@@ -8,8 +8,10 @@ import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedisIdWorker redisIdWorker;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
     @Override
     public Result seckillVoucher(Long voucherId) {
         //1. 查询优惠券
@@ -55,11 +60,21 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         Long userId = UserHolder.getUser().getId();
-        synchronized (userId.toString().intern()) {
+        //创建锁对象(分布式锁)
+        SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        //获取锁
+        boolean isLock = lock.tryLock(1200);
+        if(!isLock){
+            //获取锁失败，返回失败或者重试
+            return Result.fail("不允许重复下单");
+        }try {
             //获取代理对象（事务）
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);//下面的方法是用ctrl+alt+m快捷键抽出来的
+        }finally {
+            lock.unlock();
         }
+
     }
 
     @Transactional
@@ -82,7 +97,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             //6.扣减库存
             boolean success = seckillVoucherService.update()
                     .setSql("stock=stock-1")
-                    .eq("voucher_id", voucherId).gt("stock", 0)//这里第二个.eq就是增加了一个判断条件，相当于where stock=,从而达到一个乐观锁的效果,避免并发问题
+                    .eq("voucher_id", voucherId).gt("stock", 0)//这里第二个.eq就是增加了一个判断条件，相当于where stock=,从而达到一个乐观锁的效果,避免并发问题(CAS)
                     .update();
             if (!success) {
                 return Result.fail("库存不足");
