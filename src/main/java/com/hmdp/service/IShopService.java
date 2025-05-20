@@ -19,4 +19,6 @@ public interface IShopService extends IService<Shop> {
 
     //修改商户信息
     Result update(Shop shop);
+
+    Result queryShopByType(Integer typeId, Integer current, Double x, Double y);
 }
