@@ -85,6 +85,7 @@ public class UserController {
         return Result.ok(info);
     }
 
+    // 查询用户详细
     @GetMapping("/{id}")
     public Result queryUserById(@PathVariable("id") Long userId){
         // 查询详情
@@ -95,6 +96,18 @@ public class UserController {
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         // 返回
         return Result.ok(userDTO);
+    }
+
+    //实现签到功能
+    @PostMapping("/sign")
+    public Result sign(){
+        return userService.sign();
+    }
+
+    //统计连续签到天数
+    @GetMapping("/sign/count")
+    public Result signCount(){
+        return userService.signCount();
     }
 
 
