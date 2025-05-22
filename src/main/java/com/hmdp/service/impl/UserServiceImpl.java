@@ -12,6 +12,7 @@ import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.service.IUserService;
 
+import com.hmdp.utils.JwtUtil;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +74,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //5.返回ok
         return Result.ok();
     }
-
+    //jwt的密钥
+    public static final String SECRET_KEY = "ljj666888";
+    public static  final String USER_ID = "id";
     @Override
     public Result login(LoginFormDTO loginForm, HttpSession session) {
 
@@ -99,7 +102,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             user= createUserWithPhone(phone);
 
         }
-        //6.保存用户信息到redis中
+ /*       //6.保存用户信息到redis中
         //6.1随机生成token,作为登录令牌
         String token = UUID.randomUUID().toString(true);
         //6.2将User对象转化为HashMap，保存到redis中
@@ -113,6 +116,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         stringRedisTemplate.opsForHash().putAll(tokenKey,userMap);
         //6.4设置token有效期
         stringRedisTemplate.expire(tokenKey,LOGIN_USER_TTL, TimeUnit.MINUTES);
+        //7.返回token*/
+        //6.更换成jwt验证
+        //6.1创建一个HashMap，放置jwt的token里面的自定义信息
+        HashMap<String, Object> claims = new HashMap<>();
+        claims.put(USER_ID,user.getId());
+
+        //6.2使用一个常量密钥，用于生成jwt
+        String token = JwtUtil.createJWT(SECRET_KEY, LOGIN_USER_TTL*1000, claims);//这里的单位是ms，所以是36s乘以1000
+
         //7.返回token
         return Result.ok(token);
 
