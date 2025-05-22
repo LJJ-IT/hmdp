@@ -18,7 +18,6 @@ public class JwtUtil {
      * @param claims    设置的信息
      * @return
      */
-    //TODO 做完这个项目记得把登录系统改成JWT的登录方式
     public static String createJWT(String secretKey, long ttlMillis, Map<String, Object> claims) {
         // 指定签名的时候使用的签名算法，也就是header那部分
         SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
